@@ -8,7 +8,7 @@ using CppAD::AD;
 
 // TODO: Set the timestep length and duration
 size_t N = 10;
-double dt = 0.1;
+double dt = 0.05;
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -26,7 +26,7 @@ double ref_cte = 0;
 double ref_epsi = 0;
 // NOTE: feel free to play around with this
 // or do something completely different
-double ref_v = 30;
+double ref_v = 50;
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should to establish
@@ -59,16 +59,16 @@ public:
       // any anything you think may be beneficial.
       double multiplier = 2; // 4 and 1 and 64 are the best
       for (int i = 0; i < N; i++) {
-        fg[0] += pow(vars[cte_start+i] - ref_cte, 2);
-        fg[0] += 16*pow(vars[epsi_start+i] - ref_epsi, 2);
+        fg[0] += 64*pow(vars[cte_start+i] - ref_cte, 2);
+        fg[0] += 64*pow(vars[epsi_start+i] - ref_epsi, 2);
         fg[0] += pow(vars[v_start+i] - ref_v, 2);
       }
       for (int i = 0; i < N-1; i++) {
-        fg[0] += 48*pow(vars[delta_start+i], 2);
-        fg[0] += 32*pow(vars[a_start+i], 2);
+        fg[0] += 32000*pow(vars[delta_start+i], 2);
+        fg[0] += 8*pow(vars[a_start+i], 2);
       }
       for (int i = 0; i < N-2; i++) {
-        fg[0] += 2048*pow(vars[delta_start+i] - vars[delta_start+i+1], 2);
+        fg[0] += 100000*pow(vars[delta_start+i] - vars[delta_start+i+1], 2);
         fg[0] += 64*pow(vars[a_start+i] - vars[a_start+i+1], 2);
       }
 
@@ -112,8 +112,12 @@ public:
         AD<double> delta = vars[delta_start + i];
 
         AD<double> ypred = 0;
+        AD<double> derivative = 0;
         for (int j = 0; j < coeffs.size(); j++) {
           ypred += coeffs[j] * pow(x0, j);
+          if (fabs(x0) > 0.0001) {
+            derivative += coeffs[j] * j * pow(x0, j-1);
+          }
         }
 
 
@@ -127,10 +131,11 @@ public:
 
         // TODO: Setup the rest of the model constraints
         fg[2 + x_start + i] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
-        fg[2 + y_start + i] = y1 - (y0 + v0 * CppAD::sin(psi0)*dt);
+        fg[2 + y_start + i] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
         fg[2 + v_start + i] = v1 - (v0 + a * dt);
+        fg[2 + psi_start + i] = psi1 - (psi0 + v0 * delta / Lf * dt);
         fg[2 + cte_start + i] = cte1 - ((ypred-y0) + v0 * CppAD::sin(epsi0)*dt);
-        fg[2 + epsi_start + i] = epsi1 - ((psi0 - CppAD::atan(ypred)) + v0/Lf * delta * dt);
+        fg[2 + epsi_start + i] = epsi1 - ((psi0 - CppAD::atan(derivative)) + v0/Lf * delta * dt);
 
       }
     }
